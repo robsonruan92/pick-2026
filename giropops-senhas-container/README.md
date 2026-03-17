@@ -9,7 +9,7 @@ Este guia descreve o processo de build e execução de uma aplicação Flask con
 # Estrutura do Dockerfile
     
 ```bash  
-FROM python:3.11
+FROM python:3.11-slim
 
 WORKDIR /app
 COPY requirements.txt .
@@ -25,8 +25,7 @@ CMD ["flask", "run", "--host=0.0.0.0"]
 ```
 
 Descrição:
-
-- **FROM python:3.11**: imagem base com Python
+- **FROM python:3.11-slim**: imagem base com Python
 - **WORKDIR /app**: define diretório de trabalho no container
 - **COPY**: copia arquivos da aplicação para dentro do container
 - **RUN pip install**: instala dependências do projeto
