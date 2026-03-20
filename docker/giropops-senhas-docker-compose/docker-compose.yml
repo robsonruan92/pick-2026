@@ -1,7 +1,82 @@
-version: '3'
+version: '3.8' # Define a versão da especificação do Docker Compose utilizada
+services: # Declaração dos serviços (containers) que compõem a aplicação
+  giropops-senhas: # Nome do serviço principal da aplicação
+    build: # Configuração de build da imagem local
+      context: . # Diretório onde está o contexto de build (arquivos usados no build)
+      dockerfile: Dockerfile # Nome do Dockerfile dentro do contexto
+    # Nome do container (problema para autoescalonamento por nao repetir o nome)
+    #container_name: giropops-senhas
+    ports: # Mapeamento de portas entre host e container
+      - "5000:5000" # Porta 5000 do host → porta 5000 do container
+    networks: # Redes às quais o container será conectado
+      - giropops # Nome da rede definida no final do arquivo
+    environment: # Variáveis de ambiente definidas diretamente
+      REDIS_HOST: redis # Define o host do Redis (nome do serviço redis)
+    env_file: # Arquivo externo contendo variáveis de ambiente
+      - .env # Carrega variáveis do arquivo .env
+    volumes: # Montagem de volumes
+      - type: volume # Tipo de volume gerenciado pelo Docker
+        source: strigus # Nome do volume
+        target: /strigus # Caminho dentro do container onde o volume será montado
+    depends_on: # Define dependências de inicialização
+      - redis # Garante que o serviço redis seja iniciado antes
+    labels: # Metadados do container
+      com.docker.description: "Giropops Senhas App" # Descrição do serviço
+      com.docker.version: "1.0" # Versão da aplicação
+    deploy: # Configurações avançadas (usadas principalmente em Docker Swarm)
+      replicas: 1 # Número de réplicas do serviço
+      update_config: # Configuração de atualização rolling update
+        parallelism: 1 # Número de containers atualizados simultaneamente
+        delay: 10s # Intervalo entre atualizações
+      resources: # Controle de recursos do container
+        reservations: # Recursos mínimos reservados
+          cpus: '0.25' # Reserva 0.25 CPU
+          memory: 128M # Reserva 128 MB de memória
+        limits: # Limites máximos de uso
+          cpus: '0.5' # Limite de 0.5 CPU
+          memory: 256M # Limite de 256 MB de memória
+      restart_policy: # Política de reinício do container
+        condition: on-failure # Reinicia apenas se houver falha
+        delay: 5s # Tempo de espera antes de reiniciar
+        max_attempts: 3 # Número máximo de tentativas
+    dns: # Configuração manual de servidores DNS
+      - 8.8.8.8 # DNS Google primário
+      - 8.8.4.4 # DNS Google secundário
+        #devices: # Mapeamento de dispositivos do host para o container
+      #  - "/dev/usb:/dev/usb" # Permite acesso ao dispositivo USB do host
+  redis: # Serviço de banco de dados Redis
+    image: redis # Imagem oficial do Redis no Docker Hub
+    command: redis-server --appendonly yes # Inicia o Redis com persistência habilitada (AOF)
+    networks: # Rede do serviço
+      - giropops # Conecta na mesma rede do app
+    volumes: # Volume persistente
+      - strigus:/strigus # Usa o mesmo volume compartilhado
+    healthcheck: # Verificação de saúde do container
+      test: ["CMD", "redis-cli", "ping"] # Comando para testar se o Redis responde
+      interval: 30s # Intervalo entre testes
+      timeout: 5s # Tempo máximo de resposta
+      retries: 3 # Número de tentativas antes de marcar como unhealthy
+      start_period: 10s # Tempo inicial antes de iniciar os testes
+    labels: # Metadados do Redis
+      io.linuxtips.description: "Redis Server" # Descrição do serviço
+      io.linuxtips.version: "Latest" # Versão do serviço
 
-services:
-  nginx:
-    image: nginx
-    ports:
-      - "8080:80"
+networks: # Declaração das redes utilizadas pelos serviços
+  giropops: # Nome da rede customizada
+    driver: bridge # Define o tipo de rede como bridge (rede local padrão do Docker)
+    ipam: # Configuração de gerenciamento de IP (IP Address Management)
+      driver: default # Driver padrão de IPAM
+      config: # Lista de configurações de rede
+        - subnet: "172.20.0.0/16" # Define o range de IPs da rede (CIDR)
+    labels: # Metadados associados à rede
+      io.linuxtips.network: "giropops_network" # Identificação/descrição da rede
+
+volumes: # Declaração dos volumes persistentes
+  strigus: # Nome do volume utilizado pelos serviços
+    driver: local # Define que o volume será gerenciado localmente pelo Docker
+    driver_opts: # Opções avançadas do driver de volume
+      type: "none" # Indica que não será criado um filesystem específico (bind mount)
+      device: /home/rruan/github/pick-docker-2026/docker/giropops-senhas-docker-compose # Caminho no host que será utilizado
+      o: "bind" # Define que o volume será um bind mount (mapeamento direto do host)
+    labels: # Metadados do volume
+      io.linuxtips.volume: "strigus_volume" # Identificação/descrição do volume
